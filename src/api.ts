@@ -1,5 +1,10 @@
 import axios, { AxiosError } from "axios";
-import type { GetNearestDayParams, GetNearestDayResponse } from "./types";
+import type {
+  AppointmentRequestBody,
+  AppointmentResponse,
+  GetNearestDayParams,
+  GetNearestDayResponse,
+} from "./types";
 
 const BASE_URL =
   process.env.BASE_URL ??
@@ -31,6 +36,34 @@ export async function getNearestDay(
     const message =
       axiosErr.response?.status != null
         ? `API error ${axiosErr.response.status}: ${JSON.stringify(axiosErr.response.data)}`
+        : axiosErr.message ?? "Unknown error";
+    throw new Error(message);
+  }
+}
+
+export async function createAppointment(
+  bearerToken: string,
+  appointmentUrl: string,
+  body: AppointmentRequestBody
+): Promise<AppointmentResponse> {
+  try {
+    const response = await axios.post<AppointmentResponse>(
+      appointmentUrl,
+      body,
+      {
+        headers: {
+          Authorization: `Bearer ${bearerToken}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+    return response.data;
+  } catch (err) {
+    const axiosErr = err as AxiosError;
+    const message =
+      axiosErr.response?.status != null
+        ? `Booking API error ${axiosErr.response.status}: ${JSON.stringify(axiosErr.response.data)}`
         : axiosErr.message ?? "Unknown error";
     throw new Error(message);
   }

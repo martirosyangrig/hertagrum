@@ -116,6 +116,7 @@ export function createBot(config: AppConfig): Telegraf<Context> {
       regions: config.regions,
       pollIntervalMs: config.pollIntervalMs,
       notify,
+      booking: config.booking,
     });
 
     const names = selectedRegions.map((r) => r.name).join(", ");

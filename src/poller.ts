@@ -1,12 +1,14 @@
-import { getNearestDay } from "./api";
+import { getNearestDay, createAppointment } from "./api";
 import { getSubscriberIds, getSubscriberIdsForRegion, hasSubscribers } from "./subscribers";
 import {
   getTodayDateString,
   getFirstDateKey,
   isSpringDate,
   formatRegionNotificationMessage,
+  formatBookingSuccess,
+  formatBookingFailure,
 } from "./formatter";
-import type { PollerConfig } from "./types";
+import type { AppointmentRequestBody, PollerConfig } from "./types";
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -54,11 +56,56 @@ async function runCheck(config: PollerConfig): Promise<void> {
         continue;
       }
 
-      const message = formatRegionNotificationMessage(
+      let message = formatRegionNotificationMessage(
         region.name,
         firstKey,
         slots
       );
+
+      if (config.booking?.enabled && slots.length > 0) {
+        const { profile, formFieldIds, appointmentUrl } = config.booking;
+        const body: AppointmentRequestBody = {
+          appointmentStep: {
+            accountId: 0,
+            serviceId: region.serviceId,
+            startTime: slots[1].value ? slots[1].value : slots[0].value,
+          },
+          branchId: region.branchId,
+          date: dateOnly,
+          email: "",
+          formFields: [
+            { companyFormFieldId: formFieldIds.nameFieldId, value: profile.name },
+            { companyFormFieldId: formFieldIds.surnameFieldId, value: profile.surname },
+            { companyFormFieldId: formFieldIds.phoneFieldId, value: profile.phone },
+            { companyFormFieldId: formFieldIds.emailFieldId, value: profile.email },
+          ],
+          hasReception: false,
+        };
+
+        try {
+          console.log(
+            `${region.name} - attempting to book slot ${slots[0].value} on ${dateOnly}...`
+          );
+          const result = await createAppointment(
+            config.bearerToken,
+            appointmentUrl,
+            body
+          );
+          console.log(
+            `${region.name} - booked successfully: ${result.appointmentNumber}, PIN ${result.pin}`
+          );
+          message += "\n" + formatBookingSuccess(
+            result.appointmentNumber,
+            result.pin,
+            result.startTime
+          );
+        } catch (bookingErr) {
+          const errMsg =
+            bookingErr instanceof Error ? bookingErr.message : String(bookingErr);
+          console.error(`${region.name} - booking failed:`, errMsg);
+          message += "\n" + formatBookingFailure(errMsg);
+        }
+      }
 
       const regionSubscribers = getSubscriberIdsForRegion(region);
 

@@ -16,13 +16,17 @@ export function getFirstDateKey(
   return keys[0];
 }
 
-/** Returns true if the date (YYYY-MM-DD) falls in spring: March 1 – June 30 inclusive. */
+/** Returns true if the date (YYYY-MM-DD) falls between March 1 and June 15 inclusive. */
 export function isSpringDate(dateKey: string): boolean {
   const dateOnly = dateKey.slice(0, 10);
-  const [year, monthStr] = dateOnly.split("-");
-  if (!year || !monthStr) return false;
+  const [year, monthStr, dayStr] = dateOnly.split("-");
+  if (!year || !monthStr || !dayStr) return false;
   const month = parseInt(monthStr, 10);
-  return month >= 3 && month <= 6;
+  const day = parseInt(dayStr, 10);
+  if (month < 3) return false;
+  if (month > 6) return false;
+  if (month === 6 && day > 15) return false;
+  return true;
 }
 
 export function formatRegionNotificationMessage(
@@ -48,4 +52,16 @@ export function formatNotificationMessage(
       ? slots.map((s) => s.label).join(", ")
       : "No slots listed";
   return `Nearest date: ${dateOnly}\nAvailable times: ${slotList}`;
+}
+
+export function formatBookingSuccess(
+  appointmentNumber: string,
+  pin: string,
+  startTime: string
+): string {
+  return `✅ Auto-booked: Appointment ${appointmentNumber}, PIN ${pin}, Time ${startTime}`;
+}
+
+export function formatBookingFailure(error: string): string {
+  return `⚠️ Slots available but auto-booking failed: ${error}\nPlease book manually.`;
 }
