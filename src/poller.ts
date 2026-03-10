@@ -1,5 +1,5 @@
 import { getNearestDay } from "./api";
-import { getSubscriberIds } from "./subscribers";
+import { getSubscriberIds, getSubscriberIdsForRegion, hasSubscribers } from "./subscribers";
 import {
   getTodayDateString,
   getFirstDateKey,
@@ -11,18 +11,21 @@ import type { PollerConfig } from "./types";
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 async function runCheck(config: PollerConfig): Promise<void> {
-  const subscribers = getSubscriberIds();
-  if (subscribers.size === 0) {
+  if (!hasSubscribers()) {
     console.log("Poller tick: no subscribers, skipping check.");
     return;
   }
 
+  const allSubscribers = getSubscriberIds();
+  const regionsToCheck = config.regions.filter(
+    (r) => getSubscriberIdsForRegion(r).length > 0
+  );
   const today = getTodayDateString();
   console.log(
-    `Poller tick: checking ${config.regions.length} region(s) for ${subscribers.size} subscriber(s) on ${today}.`
+    `Poller tick: checking ${regionsToCheck.length} region(s) for ${allSubscribers.length} subscriber(s) on ${today}.`
   );
 
-  for (const region of config.regions) {
+  for (const region of regionsToCheck) {
     try {
       console.log(
         `Fetching nearest day for region ${region.name} (branch ${region.branchId}, service ${region.serviceId})...`
@@ -57,11 +60,13 @@ async function runCheck(config: PollerConfig): Promise<void> {
         slots
       );
 
+      const regionSubscribers = getSubscriberIdsForRegion(region);
+
       console.log(
-        `${region.name} - sending notification to ${subscribers.size} subscriber(s).`
+        `${region.name} - sending notification to ${regionSubscribers.length} subscriber(s).`
       );
 
-      for (const chatId of subscribers) {
+      for (const chatId of regionSubscribers) {
         try {
           await config.notify(chatId, message);
         } catch (err) {
